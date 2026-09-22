@@ -4,12 +4,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 
 from inspection.models import Inspection
-from inspection.reader_write_gate import open_create_page, open_submit
+from inspection.permissions import can_register_lights
 from inspection.rules import judge
-
-
-def _can_write(user) -> bool:
-    return user.groups.filter(name="inspector").exists()
 
 
 def health(_request):
@@ -47,7 +43,7 @@ def logout_view(request):
 @login_required
 def list_view(request):
     rows = Inspection.objects.all()
-    return render(request, "list.html", {"rows": rows, "can_write": _can_write(request.user)})
+    return render(request, "list.html", {"rows": rows, "can_write": can_register_lights(request.user)})
 
 
 @login_required
@@ -59,12 +55,11 @@ def detail_view(request, pk):
 @login_required
 @require_http_methods(["GET", "POST"])
 def create_view(request):
-    if not open_create_page(request.user):
+    # 登记页与提交共用同一道闸：只读账号 GET 看到 403，POST 也不会落库。
+    if not can_register_lights(request.user):
         return HttpResponseForbidden("仅巡检员可登记灯光巡检")
     error = ""
     if request.method == "POST":
-        if not open_submit(request.user):
-            return HttpResponseForbidden("仅巡检员可登记灯光巡检")
         try:
             measured = float(request.POST["measured_cd"])
             required = float(request.POST["required_cd"])

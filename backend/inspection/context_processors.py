@@ -1,7 +1,7 @@
-from inspection.reader_write_gate import open_nav_link
+from inspection.permissions import can_register_lights
 
 
 def nav(request):
     user = getattr(request, "user", None)
-    show = open_nav_link(user)
+    show = can_register_lights(user)
     return {"can_write": show, "show_register": show}
