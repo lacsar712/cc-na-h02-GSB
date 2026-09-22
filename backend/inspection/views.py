@@ -4,11 +4,13 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 
 from inspection.models import Inspection
-from inspection.reader_write_gate import open_create_page, open_submit
 from inspection.rules import judge
 
 
-def _can_write(user) -> bool:
+def can_write(user) -> bool:
+    """仅 inspector 组成员（持灯账号）可登记，其余登录账号只读。"""
+    if not getattr(user, "is_authenticated", False):
+        return False
     return user.groups.filter(name="inspector").exists()
 
 
@@ -47,7 +49,7 @@ def logout_view(request):
 @login_required
 def list_view(request):
     rows = Inspection.objects.all()
-    return render(request, "list.html", {"rows": rows, "can_write": _can_write(request.user)})
+    return render(request, "list.html", {"rows": rows, "can_write": can_write(request.user)})
 
 
 @login_required
@@ -59,12 +61,11 @@ def detail_view(request, pk):
 @login_required
 @require_http_methods(["GET", "POST"])
 def create_view(request):
-    if not open_create_page(request.user):
+    # 只读账号打开登记页与直接 POST 提交一律拒绝，不产生任何记录。
+    if not can_write(request.user):
         return HttpResponseForbidden("仅巡检员可登记灯光巡检")
     error = ""
     if request.method == "POST":
-        if not open_submit(request.user):
-            return HttpResponseForbidden("仅巡检员可登记灯光巡检")
         try:
             measured = float(request.POST["measured_cd"])
             required = float(request.POST["required_cd"])

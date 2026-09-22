@@ -1,7 +1,6 @@
-from inspection.reader_write_gate import open_nav_link
+from inspection.views import can_write
 
 
 def nav(request):
-    user = getattr(request, "user", None)
-    show = open_nav_link(user)
+    show = can_write(getattr(request, "user", None))
     return {"can_write": show, "show_register": show}
